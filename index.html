@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>MiMo 桌面宠物</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; user-select:none; }
+  html,body { width:100%; height:100%; overflow:hidden; background:transparent;
+    font-family:"PingFang SC","Microsoft YaHei",sans-serif; }
+
+  #petWrap { position:absolute; left:130px; top:20px; width:190px; height:210px;
+    cursor:grab; touch-action:none; z-index:10; }
+  #petFloat { width:100%; height:100%; animation:float 3.2s ease-in-out infinite; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-11px)} }
+  svg { width:100%; height:100%; overflow:visible; }
+  .tail { transform-origin:150px 138px; animation:wag 2.4s ease-in-out infinite; }
+  @keyframes wag { 0%,100%{transform:rotate(-8deg)} 50%{transform:rotate(12deg)} }
+  .antenna-ball { animation:glow 2s ease-in-out infinite; }
+  @keyframes glow { 0%,100%{opacity:.95; transform:scale(1)} 50%{opacity:.6; transform:scale(.86)} }
+  .eye-group { transform-origin:center; animation:blink 4.5s infinite; }
+  @keyframes blink { 0%,92%,100%{transform:scaleY(1)} 95%{transform:scaleY(.08)} }
+  .pupil { transition:transform .18s ease-out; }
+
+  #bubble { position:absolute; left:50%; top:-10px; transform:translate(-50%,-100%) scale(.6);
+    transform-origin:bottom center; min-width:160px; max-width:300px; background:#fff;
+    border-radius:18px; padding:12px 16px; box-shadow:0 12px 30px rgba(0,0,0,.18);
+    font-size:13px; color:#333; line-height:1.65; opacity:0; pointer-events:none;
+    transition:.25s cubic-bezier(.34,1.56,.64,1); }
+  #bubble.show { opacity:1; transform:translate(-50%,-100%) scale(1); }
+  #bubble::after { content:""; position:absolute; left:50%; bottom:-8px; transform:translateX(-50%);
+    border:9px solid transparent; border-top-color:#fff; border-bottom:0; }
+  #bubble b { color:#FF6A2B; }
+  .dots span { display:inline-block; width:7px; height:7px; margin:0 2px; border-radius:50%;
+    background:#FF6A2B; animation:dot 1s infinite; }
+  .dots span:nth-child(2){animation-delay:.15s} .dots span:nth-child(3){animation-delay:.3s}
+  @keyframes dot { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-6px);opacity:1} }
+
+  #tools { position:absolute; left:50%; bottom:-14px; transform:translateX(-50%);
+    display:flex; gap:6px; opacity:0; transition:.25s; pointer-events:none; }
+  #petWrap:hover #tools { opacity:1; pointer-events:auto; }
+  #tools button { width:34px; height:34px; border-radius:50%; border:none; cursor:pointer;
+    background:#fff; box-shadow:0 6px 16px rgba(0,0,0,.16); font-size:15px; transition:transform .15s; }
+  #tools button:hover { transform:translateY(-3px) scale(1.08); }
+
+  #panel { position:absolute; left:50%; top:250px; transform:translateX(-50%) translateY(30px);
+    width:400px; background:rgba(255,255,255,.97); border-radius:22px; padding:20px;
+    box-shadow:0 24px 60px rgba(0,0,0,.25); opacity:0; pointer-events:none;
+    transition:.3s cubic-bezier(.3,1.3,.5,1); max-height:350px; overflow-y:auto; }
+  #panel.show { opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+  #panel h3 { font-size:15px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  #panel h3 .dot { width:9px; height:9px; border-radius:50%; background:#FF6A2B; }
+  .balance-card { background:linear-gradient(135deg,#FF8A4C,#FF5B2E); border-radius:18px;
+    padding:16px; color:#fff; margin-bottom:12px; position:relative; overflow:hidden; }
+  .balance-card::after { content:"MiMo"; position:absolute; right:-6px; bottom:-18px;
+    font-size:60px; font-weight:800; opacity:.13; }
+  .balance-card .label { font-size:12px; opacity:.85; }
+  .balance-card .num { font-size:32px; font-weight:700; margin:3px 0 10px; }
+  .row { display:flex; justify-content:space-between; font-size:12px; opacity:.92;
+    padding:5px 0; border-top:1px solid rgba(255,255,255,.22); }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+  .cell { background:#FFF4EC; border-radius:14px; padding:11px; }
+  .cell .t { font-size:11px; color:#A9826B; }
+  .cell .v { font-size:17px; font-weight:700; color:#FF6A2B; margin-top:3px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  label { font-size:11px; color:#A9826B; }
+  input, select { width:100%; padding:9px 11px; border-radius:12px; border:1.5px solid #F0DCCF;
+    font-size:12.5px; margin:4px 0 10px; outline:none; background:#fff; user-select:text; }
+  input:focus { border-color:#FF8A4C; }
+  .btn { width:100%; padding:11px; border-radius:13px; border:none; cursor:pointer;
+    font-size:13.5px; font-weight:600; background:#FF6A2B; color:#fff; transition:.15s; }
+  .btn:hover { background:#FF5B2E; transform:translateY(-1px); }
+  .btn.ghost { background:#FFF0E7; color:#FF6A2B; }
+  .btn.gray  { background:#F3EFE8; }
+  .link { font-size:12px; color:#FF6A2B; cursor:pointer; text-decoration:underline; }
+  .mini { font-size:11px; color:#B0917D; line-height:1.7; margin-top:8px; }
+  .tag { display:inline-block; font-size:10px; padding:2px 7px; border-radius:99px;
+    background:#EAF7EE; color:#2E9E5B; margin-left:6px; vertical-align:middle; }
+  .tag.warn { background:#FFF3E0; color:#D98324; }
+  .heart { position:absolute; font-size:18px; pointer-events:none; z-index:99;
+    animation:rise 1.1s ease-out forwards; }
+  @keyframes rise { to{ transform:translateY(-90px) scale(1.5); opacity:0 } }
+</style>
+</head>
+<body>
+
+<div id="petWrap">
+  <div id="bubble"></div>
+  <div id="petFloat">
+    <svg viewBox="0 0 200 210">
+      <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#FF9A5C"/><stop offset="100%" stop-color="#FF6A2B"/>
+      </linearGradient></defs>
+      <ellipse cx="100" cy="196" rx="52" ry="9" fill="rgba(0,0,0,.10)"/>
+      <path class="tail" d="M150 138 q42 -6 30 -46" stroke="#FF7A45" stroke-width="15"
+        fill="none" stroke-linecap="round"/>
+      <path d="M52 62 L42 18 L88 46 Z" fill="url(#g1)"/>
+      <path d="M148 62 L158 18 L112 46 Z" fill="url(#g1)"/>
+      <path d="M58 56 L52 30 L78 46 Z" fill="#FFD3BC"/>
+      <path d="M142 56 L148 30 L122 46 Z" fill="#FFD3BC"/>
+      <line x1="100" y1="52" x2="100" y2="26" stroke="#FF7A45" stroke-width="5" stroke-linecap="round"/>
+      <circle class="antenna-ball" cx="100" cy="20" r="9" fill="#FFD23F"/>
+      <ellipse cx="100" cy="118" rx="62" ry="57" fill="url(#g1)"/>
+      <ellipse cx="100" cy="134" rx="38" ry="32" fill="#FFF2E8"/>
+      <ellipse cx="46" cy="132" rx="14" ry="19" fill="#FF7A45" transform="rotate(18 46 132)"/>
+      <ellipse cx="154" cy="132" rx="14" ry="19" fill="#FF7A45" transform="rotate(-18 154 132)"/>
+      <ellipse cx="76" cy="176" rx="17" ry="11" fill="#FF7A45"/>
+      <ellipse cx="124" cy="176" rx="17" ry="11" fill="#FF7A45"/>
+      <ellipse cx="62" cy="122" rx="11" ry="7" fill="#FF5F49" opacity=".45"/>
+      <ellipse cx="138" cy="122" rx="11" ry="7" fill="#FF5F49" opacity=".45"/>
+      <g class="eye-group">
+        <ellipse cx="76" cy="104" rx="15" ry="17" fill="#3B2417"/>
+        <ellipse cx="124" cy="104" rx="15" ry="17" fill="#3B2417"/>
+        <circle class="pupil" cx="76" cy="104" r="7" fill="#fff"/>
+        <circle class="pupil" cx="124" cy="104" r="7" fill="#fff"/>
+        <circle class="pupil" cx="79" cy="111" r="3.2" fill="#fff" opacity=".8"/>
+        <circle class="pupil" cx="127" cy="111" r="3.2" fill="#fff" opacity=".8"/>
+      </g>
+      <ellipse cx="100" cy="124" rx="5" ry="3.6" fill="#C4472B"/>
+      <path class="mouth" d="M88 133 q12 11 24 0" stroke="#C4472B" stroke-width="3.4"
+        fill="none" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div id="tools">
+    <button title="查询余额" onclick="queryBalance()">💰</button>
+    <button title="摸摸我" onclick="petMe(event)">🖐️</button>
+    <button title="余额面板" onclick="togglePanel()">📊</button>
+    <button title="藏到屏幕边" onclick="hidePet()">🙈</button>
+    <button title="退出" onclick="petAPI.quit()">🚪</button>
+  </div>
+</div>
+
+<div id="panel">
+  <h3><span class="dot"></span><span id="panelTitle">API 余额</span></h3>
+
+  <div class="balance-card">
+    <div class="label">账户总余额</div>
+    <div class="num" id="totalBal">¥ --</div>
+    <div class="row"><span>现金余额</span><span id="cashBal">--</span></div>
+    <div class="row"><span>赠送 / 代金券</span><span id="giftBal">--</span></div>
+    <div class="row"><span>已消耗</span><span id="usedBal">--</span></div>
+    <div class="row"><span>有效期至</span><span id="expireAt">--</span></div>
+  </div>
+
+  <div class="grid">
+    <div class="cell"><div class="t">接口地址（可修改）</div><div class="v" id="urlShow" style="font-size:11px">--</div></div>
+    <div class="cell"><div class="t">最近查询</div><div class="v" id="lastQuery" style="font-size:13px">--</div></div>
+  </div>
+
+  <button class="btn" onclick="queryBalance()">🔄 立即查询余额</button>
+  <div style="height:8px"></div>
+
+  <label>选择服务商（接口已预设）</label>
+  <select id="provider" onchange="onProviderChange()"></select>
+
+  <label>API Key（本地保存，不上传）</label>
+  <input id="apiKey" type="password" placeholder="sk-...">
+  <input id="customUrl" placeholder="余额接口地址（默认已预设，可覆盖）">
+
+  <button class="btn ghost" onclick="saveSettings()">💾 保存配置</button>
+  <div style="height:6px"></div>
+  <button class="btn" style="background:#F3EEE8;color:#8A6B54" onclick="openConsole()">🌐 打开该服务商控制台</button>
+
+  <div class="mini" id="providerNote"></div>
+</div>
+
+<script>
+/* =========================================================
+   各家大模型服务商「余额查询接口」预设
+   - verified:true  = 官方文档公开接口，开箱即用
+   - verified:false = 接口可能变动，已留出"接口地址"输入框可随时改；
+                      也可以点"打开控制台"网页查看
+   ========================================================= */
+const PROVIDERS = [
+  {
+    id: 'mimo', name: '小米 MiMo', icon: '🟠', currency: '¥', verified: false,
+    balanceUrl: 'https://api.mimo.xiaomi.com/v1/user/balance',
+    consoleUrl: 'https://mimo.xiaomi.com/',
+    note: 'MiMo：接口地址请以官方开放平台文档为准（下方输入框可直接改）。若返回 404，点"打开控制台"查看余额。',
+    parse: j => genericParse(j)
+  },
+  {
+    id: 'deepseek', name: 'DeepSeek', icon: '🐋', currency: '¥', verified: true,
+    balanceUrl: 'https://api.deepseek.com/user/balance',
+    consoleUrl: 'https://platform.deepseek.com/usage',
+    note: 'DeepSeek 官方余额接口 GET /user/balance，返回 total_balance / granted_balance。',
+    parse: j => {
+      const b = (j.balance_infos || [])[0] || {};
+      const total = +b.total_balance || 0, gift = +b.granted_balance || 0;
+      return { total, cash: total - gift, gift, used: 0, expire: '--', ok: j.is_available !== false };
+    }
+  },
+  {
+    id: 'kimi', name: 'Kimi / Moonshot', icon: '🌙', currency: '¥', verified: true,
+    balanceUrl: 'https://api.moonshot.cn/v1/users/me/balance',
+    consoleUrl: 'https://platform.moonshot.cn/console/account',
+    note: 'Moonshot 官方接口 GET /v1/users/me/balance，返回 available_balance / cash_balance / voucher_balance。',
+    parse: j => {
+      const d = j.data || j;
+      return {
+        total: +d.available_balance || 0,
+        cash: +d.cash_balance || 0,
+        gift: +d.voucher_balance || 0,
+        used: 0, expire: '--', ok: true
+      };
+    }
+  },
+  {
+    id: 'openrouter', name: 'OpenRouter', icon: '🔀', currency: '$', verified: true,
+    balanceUrl: 'https://openrouter.ai/api/v1/credits',
+    consoleUrl: 'https://openrouter.ai/credits',
+    note: 'OpenRouter 官方接口 GET /api/v1/credits，返回 total_credits / total_usage（美元）。',
+    parse: j => {
+      const d = j.data || j;
+      const credits = +d.total_credits || 0, usage = +d.total_usage || 0;
+      return { total: credits - usage, cash: credits - usage, gift: 0, used: usage, expire: '--', ok: true };
+    }
+  },
+  {
+    id: 'siliconflow', name: '硅基流动 SiliconFlow', icon: '🩶', currency: '¥', verified: false,
+    balanceUrl: 'https://api.siliconflow.cn/v1/user/info',
+    consoleUrl: 'https://cloud.siliconflow.cn/account/finance',
+    note: 'SiliconFlow 用户信息接口中带余额字段（charge_balance / gift_balance）。若字段变动，可自行改接口地址。',
+    parse: j => {
+      const d = j.data || j;
+      const cash = +(d.charge_balance ?? d.chargeBalance ?? 0);
+      const gift = +(d.gift_balance ?? d.giftBalance ?? 0);
+      const total = +(d.balance ?? (cash + gift));
+      return { total, cash, gift, used: 0, expire: '--', ok: true };
+    }
+  },
+  {
+    id: 'zhipu', name: '智谱 GLM / BigModel', icon: '🧠', currency: '¥', verified: false,
+    balanceUrl: 'https://open.bigmodel.cn/api/paas/v4/users/balance',
+    consoleUrl: 'https://open.bigmodel.cn/usercenter/proj-mgmt/billing',
+    note: '智谱：余额多在控制台展示，接口若 403/404 请直接点"打开控制台"查看。',
+    parse: j => genericParse(j)
+  },
+  {
+    id: 'minimax', name: 'MiniMax', icon: '🌀', currency: '¥', verified: false,
+    balanceUrl: 'https://api.minimax.chat/v1/get_balance',
+    consoleUrl: 'https://platform.minimaxi.com/user-center/basic-information',
+    note: 'MiniMax 余额接口以官方文档为准，可在此覆盖地址；失败时用控制台查看。',
+    parse: j => genericParse(j)
+  },
+  {
+    id: 'qwen', name: '阿里百炼 Qwen', icon: '☁️', currency: '¥', verified: false,
+    balanceUrl: '', consoleUrl: 'https://bailian.console.aliyun.com/?accountTraceId=finance',
+    note: '阿里云余额需用 BSS OpenAPI 签名（AK/SK），不适合放在客户端 → 点"打开控制台"查看。',
+    parse: j => genericParse(j)
+  },
+  {
+    id: 'doubao', name: '火山方舟 豆包', icon: '🌋', currency: '¥', verified: false,
+    balanceUrl: '', consoleUrl: 'https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey',
+    note: '火山引擎余额在财务控制台展示，需主账号 AK/SK 签名 → 点"打开控制台"查看。',
+    parse: j => genericParse(j)
+  },
+  {
+    id: 'custom', name: '自定义 (OpenAI 兼容)', icon: '🧩', currency: '$', verified: false,
+    balanceUrl: 'https://api.openai.com/v1/dashboard/billing/subscription',
+    consoleUrl: 'https://platform.openai.com/usage',
+    note: '适用于自建网关 / one-api / new-api 等，走旧版 OpenAI 计费接口格式。',
+    parse: j => ({
+      total: (+j.hard_limit_usd || 0) - (+j.total_used || 0),
+      cash: (+j.hard_limit_usd || 0) - (+j.total_used || 0),
+      gift: 0, used: +j.total_used || 0,
+      expire: (j.access_until || '--').toString().slice(0, 10), ok: true
+    })
+  },
+  {
+    id: 'mock', name: '演示模式（不联网）', icon: '🎲', currency: '¥', verified: true,
+    balanceUrl: '', consoleUrl: '', note: '随机生成余额，用来体验宠物交互效果。',
+    parse: () => {
+      const used = Math.random() * 60 + 5;
+      return { total: 100 - used, cash: 60 - used * .6, gift: 40 - used * .4,
+               used, expire: '2027-04-30', ok: true };
+    }
+  }
+];
+
+/* 通用兜底解析：从返回 JSON 里找余额类字段 */
+function genericParse(j) {
+  const d = j && (j.data || j.result || j);
+  const find = (...keys) => {
+    for (const k of keys) if (d && typeof d[k] === 'number') return d[k];
+    return null;
+  };
+  const total = find('balance', 'total_balance', 'available_balance', 'credit', 'credits', 'amount');
+  if (total === null)
+    throw new Error('接口已返回数据但没找到余额字段：' + JSON.stringify(j).slice(0, 120));
+  return { total, cash: find('cash_balance') ?? total, gift: find('gift_balance', 'voucher_balance', 'granted_balance') ?? 0,
+           used: find('used', 'total_usage') ?? 0, expire: '--', ok: true };
+}
+
+/* ================= 状态与设置 ================= */
+const $ = s => document.querySelector(s);
+let settings = { providerId: 'mock', keys: {}, urlOverrides: {} };
+let current = PROVIDERS.find(p => p.id === 'mock');
+let lastData = null, bubbleTimer;
+
+const providerSel = $('#provider');
+PROVIDERS.forEach(p => {
+  const o = document.createElement('option');
+  o.value = p.id;
+  o.textContent = `${p.icon} ${p.name}${p.verified ? ' ✔' : ''}`;
+  providerSel.appendChild(o);
+});
+
+async function initSettings() {
+  const saved = await petAPI.getSettings();
+  settings = Object.assign(settings, saved || {});
+  providerSel.value = settings.providerId || 'mock';
+  onProviderChange();
+  say(`你好呀，我是 MiMo 桌面宠物！<br>点我一下就帮你<b>查余额</b> 💰`, 5200);
+}
+
+function onProviderChange() {
+  current = PROVIDERS.find(p => p.id === providerSel.value) || PROVIDERS[0];
+  settings.providerId = current.id;
+  $('#apiKey').value = settings.keys[current.id] || '';
+  $('#customUrl').value = settings.urlOverrides[current.id] ?? current.balanceUrl;
+  $('#providerNote').innerHTML =
+    (current.verified ? '<span class="tag">官方接口</span>' : '<span class="tag warn">接口可编辑</span>') +
+    ' ' + current.note;
+  $('#urlShow').textContent = current.balanceUrl || '（网页查看）';
+  $('#panelTitle').textContent = current.icon + ' ' + current.name + ' 余额';
+  $('#totalBal').textContent = current.currency + ' --';
+}
+
+function saveSettings() {
+  settings.keys[current.id] = $('#apiKey').value.trim();
+  settings.urlOverrides[current.id] = $('#customUrl').value.trim();
+  petAPI.setSettings(settings);
+  say('配置保存好啦！✅');
+}
+
+function openConsole() {
+  if (current.consoleUrl) petAPI.openExternal(current.consoleUrl);
+}
+
+/* ================= 查询余额 ================= */
+async function queryBalance() {
+  say(`正在查询 ${current.name} 余额…<div class="dots"><span></span><span></span><span></span></div>`, 0);
+  $('#petWrap').animate([{transform:'scale(1)'},{transform:'scale(1.12)'},{transform:'scale(1)'}],
+    {duration:420, easing:'ease-in-out'});
+
+  try {
+    let data;
+    if (current.id === 'mock') {
+      await new Promise(r => setTimeout(r, 700));
+      data = current.parse();
+    } else {
+      const url = $('#customUrl').value.trim() || current.balanceUrl;
+      const key = $('#apiKey').value.trim();
+      if (!url) throw new Error('该服务商没有公开余额接口，请点"打开控制台"网页查看');
+      if (!key) throw new Error('请先填入 ' + current.name + ' 的 API Key');
+      const res = await petAPI.request({
+        url, method: 'GET',
+        headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }
+      });
+      if (!res.ok) throw new Error(`接口返回 ${res.status} ${res.text || ''}`.slice(0, 90));
+      data = current.parse(res.json ?? {});
+    }
+    lastData = data;
+    render(data);
+    $('#lastQuery').textContent = new Date().toLocaleTimeString();
+    say(`查到啦！🎉<br>${current.name} 余额 <b>${current.currency}${data.total.toFixed(2)}</b>` +
+        (data.used ? `<br>已消耗 <b>${current.currency}${data.used.toFixed(2)}</b>` : ''), 5000);
+  } catch (err) {
+    say('查询失败 😿<br><span style="color:#999;font-size:12px">' +
+        String(err.message || err).slice(0, 80) + '</span>', 5200);
+  }
+}
+
+function render(d) {
+  $('#totalBal').textContent = current.currency + ' ' + d.total.toFixed(2);
+  $('#cashBal').textContent  = current.currency + ' ' + (d.cash ?? 0).toFixed(2);
+  $('#giftBal').textContent  = current.currency + ' ' + (d.gift ?? 0).toFixed(2);
+  $('#usedBal').textContent  = current.currency + ' ' + (d.used ?? 0).toFixed(2);
+  $('#expireAt').textContent = d.expire || '--';
+}
+
+/* ================= 拖动宠物（移动整个窗口） ================= */
+const petWrap = $('#petWrap');
+let dragging = false, moved = false, sx, sy;
+petWrap.addEventListener('pointerdown', e => {
+  if (e.target.closest('#tools') || e.target.closest('#bubble')) return;
+  dragging = true; moved = false; sx = e.clientX; sy = e.clientY;
+  petAPI.dragStart();
+});
+addEventListener('pointermove', e => {
+  if (!dragging) return;
+  if (Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 6) moved = true;
+  petAPI.dragMove();
+});
+addEventListener('pointerup', () => {
+  if (!dragging) return;
+  dragging = false; petAPI.dragEnd();
+  if (!moved) queryBalance();          // 点一下 = 查余额
+});
+petWrap.addEventListener('dblclick', () => {
+  $('#petFloat').animate(
+    [{transform:'translateY(0)'},{transform:'translateY(-46px)'},{transform:'translateY(0)'}],
+    {duration:520, easing:'cubic-bezier(.3,1.6,.5,1)'});
+  say('耶！✌️');
+});
+
+/* ================= 眼睛跟随鼠标 ================= */
+addEventListener('pointermove', e => {
+  const r = petWrap.getBoundingClientRect();
+  const dx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / 220));
+  const dy = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / 220));
+  document.querySelectorAll('.pupil').forEach(p =>
+    p.style.transform = `translate(${dx * 5}px, ${dy * 4}px)`);
+});
+
+/* ================= 互动 ================= */
+function say(html, duration = 3200) {
+  const b = $('#bubble');
+  b.innerHTML = html;
+  b.classList.add('show');
+  clearTimeout(bubbleTimer);
+  if (duration) bubbleTimer = setTimeout(() => b.classList.remove('show'), duration);
+}
+function petMe(e) {
+  say(['好舒服~ 再摸摸 🥰','嘿嘿，别停～','MiMo 最喜欢你啦！','摸头可以，别乱摸耳朵！'][Math.floor(Math.random() * 4)]);
+  for (let i = 0; i < 6; i++) {
+    const h = document.createElement('div');
+    h.className = 'heart';
+    h.textContent = ['🧡','💛','❤️'][i % 3];
+    h.style.left = (petWrap.offsetLeft + 50 + Math.random() * 90) + 'px';
+    h.style.top  = (petWrap.offsetTop + 60 + Math.random() * 40) + 'px';
+    document.body.appendChild(h);
+    setTimeout(() => h.remove(), 1100);
+  }
+}
+function hidePet() {
+  petAPI.hideToEdge();
+  say('我贴边啦，点我出来～', 2400);
+}
+petWrap.addEventListener('pointerenter', () => petAPI.restore());
+function togglePanel() { $('#panel').classList.toggle('show'); }
+
+/* ================= 待机彩蛋 ================= */
+const idleLines = ['点我一下就能查余额哦～ 💰','今天也要元气满满！(＾▽＾)',
+  '要不要摸摸我？','MiMo-V2.6 已就位 🚀','拖我可以把我搬到别的地方～'];
+setInterval(() => {
+  if (!dragging && Math.random() < .5 && !$('#bubble').classList.contains('show'))
+    say(idleLines[Math.floor(Math.random() * idleLines.length)], 3600);
+}, 16000);
+
+/* 托盘菜单也能触发查询 */
+petAPI.onDoQuery(() => queryBalance());
+initSettings();
+</script>
+</body>
+</html>

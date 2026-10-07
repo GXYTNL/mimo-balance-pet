@@ -1,0 +1,34 @@
+{
+  "name": "mimo-pet-desktop",
+  "version": "1.0.0",
+  "description": "MiMo 桌面宠物 - 点一下查询各家大模型 API 余额",
+  "main": "main.js",
+  "author": "GXYTNL",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^31.7.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.mimo.desktoppet",
+    "productName": "MiMo桌面宠物",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "preload.js", "index.html"],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "MiMo桌面宠物"
+    }
+  }
+}
